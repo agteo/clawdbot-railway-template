@@ -1,4 +1,6 @@
 # Build openclaw from source to avoid npm packaging gaps (some dist files are not shipped).
+ARG GOGCLI_VERSION=0.31.1
+
 FROM node:22-bookworm AS openclaw-build
 
 # Dependencies needed for openclaw build
@@ -39,6 +41,28 @@ ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:install && pnpm ui:build
 
 
+# Download the pinned gogcli release binary at build time. Override this version in
+# Railway only after testing the new release.
+FROM node:22-bookworm AS gogcli-download
+ARG GOGCLI_VERSION
+ARG TARGETARCH
+RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    tar \
+  && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+  arch="${TARGETARCH:-amd64}"; \
+  case "$arch" in \
+    amd64|arm64) ;; \
+    *) echo "Unsupported TARGETARCH for gogcli: $arch" >&2; exit 1 ;; \
+  esac; \
+  curl -fsSL "https://github.com/openclaw/gogcli/releases/download/v${GOGCLI_VERSION}/gogcli_${GOGCLI_VERSION}_linux_${arch}.tar.gz" \
+    | tar -xzO gog > /usr/local/bin/gog; \
+  chmod +x /usr/local/bin/gog; \
+  /usr/local/bin/gog --version
+
 # Runtime image
 FROM node:22-bookworm
 ENV NODE_ENV=production
@@ -61,6 +85,10 @@ ENV NPM_CONFIG_PREFIX=/data/npm
 ENV NPM_CONFIG_CACHE=/data/npm-cache
 ENV PNPM_HOME=/data/pnpm
 ENV PNPM_STORE_DIR=/data/pnpm-store
+# Keep gogcli state and encrypted token storage on the Railway volume.
+# Set GOG_KEYRING_PASSWORD as a Railway secret; never bake it into the image.
+ENV GOG_HOME=/data/gogcli
+ENV GOG_KEYRING_BACKEND=file
 ENV PATH="/data/npm/bin:/data/pnpm:${PATH}"
 
 WORKDIR /app
@@ -71,6 +99,10 @@ RUN npm install --omit=dev && npm cache clean --force
 
 # Copy built openclaw
 COPY --from=openclaw-build /openclaw /openclaw
+
+# Provide gogcli as a baked-in, pinned binary. OAuth clients/tokens stay on /data.
+COPY --from=gogcli-download /usr/local/bin/gog /usr/local/bin/gog
+RUN gog --version
 
 # Provide an openclaw executable
 RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /openclaw/dist/entry.js "$@"' > /usr/local/bin/openclaw \

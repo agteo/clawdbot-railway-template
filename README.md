@@ -82,10 +82,32 @@ What persists cleanly today:
   - npm globals: `/data/npm` (binaries in `/data/npm/bin`)
   - pnpm globals: `/data/pnpm` (binaries) + `/data/pnpm-store` (store)
 - **Python packages:** create a venv under `/data` (example below). The runtime image includes Python + venv support.
+- **gogcli state:** `/data/gogcli` by default (set `GOG_KEYRING_PASSWORD` as a Railway secret for authenticated use).
 
 What does *not* persist cleanly:
 - `apt-get install ...` (installs into `/usr/*`)
 - Homebrew installs (typically `/opt/homebrew` or similar)
+
+
+### Google Workspace / gogcli
+
+This template bakes the upstream `gog` binary into the image from a pinned GitHub release archive. That is safer on Railway than installing it interactively after deploy because the executable is reproducible, survives redeploys, and can be upgraded deliberately by changing the Docker build arg `GOGCLI_VERSION`.
+
+Recommended Railway variables for authenticated use:
+- `GOG_HOME=/data/gogcli` — stores gogcli config and tokens on the Railway volume
+- `GOG_KEYRING_BACKEND=file` — uses gogcli's encrypted file keyring in headless containers
+- `GOG_KEYRING_PASSWORD` — set this as a Railway secret; do **not** commit it or bake it into the image
+
+The image already defaults `GOG_HOME` and `GOG_KEYRING_BACKEND`; you only need to provide `GOG_KEYRING_PASSWORD` when you want the OpenClaw agent to read/write authenticated Google credentials. After deploy, initialize credentials from `/setup`'s debug console or an OpenClaw shell command, for example:
+
+```bash
+gog auth keyring
+gog auth credentials /data/workspace/client_secret.json
+gog auth add you@gmail.com --services gmail,calendar,drive
+gog auth doctor --check --no-input
+```
+
+Keep OAuth client JSON, exported backups, and any helper scripts under `/data` (for example `/data/workspace`) so they survive Railway restarts.
 
 ### Optional bootstrap hook
 
