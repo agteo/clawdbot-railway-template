@@ -39,7 +39,7 @@ Notes:
 - This template pins OpenClaw to a released version by default via Docker build arg `OPENCLAW_GIT_REF` (override if you want `main`).
 - The image now keeps `/openclaw` as a clean git checkout so `openclaw update` can run later on Railway. No `GITHUB_TOKEN` is required for `openclaw update`. The local `scripts/bump-openclaw-ref.mjs` helper can use `GITHUB_TOKEN` if you have one, but it also works without it against the public GitHub API.
 - The image keeps upstream `main` available locally and applies the Railway-specific changes on a separate `railway-template` branch, because `openclaw update` expects to be able to `git checkout main` during its update flow.
-- Very recent OpenClaw releases can fail image builds for about 48 hours because upstream `pnpm install` enforces a minimum package age. If the newest stable tag fails with `ERR_PNPM_NO_MATURE_MATCHING_VERSION`, wait for the maturity window to pass or pin the previous stable release.
+- Very recent OpenClaw releases can fail image builds for about 48 hours because upstream `pnpm install` enforces a minimum package age. Also, this template rewrites extension `openclaw` dependencies to the checked-out release version during the build so a pinned tag does not accidentally resolve a newer published `openclaw` package and trip that age gate.
 
 4) Enable **Public Networking** (HTTP). Railway will assign a domain.
    - This service listens on Railway’s injected `PORT` at runtime (recommended).

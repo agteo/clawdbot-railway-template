@@ -35,11 +35,14 @@ RUN git fetch --depth 1 origin "refs/tags/${OPENCLAW_GIT_REF}:refs/tags/${OPENCL
 RUN git checkout -B railway-template "${OPENCLAW_GIT_REF}"
 
 # Patch: relax version requirements for packages that may reference unpublished versions.
-# Apply to all extension package.json files to handle workspace protocol (workspace:*).
+# Apply to all extension package.json files while pinning them to the checked-out
+# OpenClaw release version instead of a wildcard. Using "*" allows pnpm to pull a
+# newer published OpenClaw package than the git tag we are building.
 RUN set -eux; \
+  claw_version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).version")"; \
   find ./extensions -name 'package.json' -type f | while read -r f; do \
-    sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*">=[^"]+"/"openclaw": "*"/g' "$f"; \
-    sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*"workspace:[^"]+"/"openclaw": "*"/g' "$f"; \
+    sed -i -E "s/\"openclaw\"[[:space:]]*:[[:space:]]*\">=[^\"]+\"/\"openclaw\": \"${claw_version}\"/g" "$f"; \
+    sed -i -E "s/\"openclaw\"[[:space:]]*:[[:space:]]*\"workspace:[^\"]+\"/\"openclaw\": \"${claw_version}\"/g" "$f"; \
   done
 RUN git config user.name "OpenClaw Railway Template" \
   && git config user.email "railway-template@example.invalid" \
