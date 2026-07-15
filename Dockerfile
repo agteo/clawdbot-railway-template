@@ -1,7 +1,9 @@
 # Build openclaw from source to avoid npm packaging gaps (some dist files are not shipped).
 ARG GOGCLI_VERSION=0.31.1
+ARG PNPM_VERSION=10.23.0
 
 FROM node:22-bookworm AS openclaw-build
+ARG PNPM_VERSION
 
 # Dependencies needed for openclaw build
 RUN apt-get update \
@@ -19,14 +21,18 @@ RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
 
 RUN corepack enable
+RUN corepack prepare pnpm@${PNPM_VERSION} --activate
 
 WORKDIR /openclaw
 
 # Pin to a known-good ref (tag/branch). Override in Railway template settings if needed.
 # Using a released tag avoids build breakage when `main` temporarily references unpublished packages.
 ARG OPENCLAW_GIT_REF=v2026.3.8
-RUN git clone --depth 1 --branch "${OPENCLAW_GIT_REF}" https://github.com/openclaw/openclaw.git .
-RUN git checkout -B railway-template
+RUN git clone --depth 1 https://github.com/openclaw/openclaw.git .
+RUN git checkout main
+RUN git branch --set-upstream-to=origin/main main
+RUN git fetch --depth 1 origin "refs/tags/${OPENCLAW_GIT_REF}:refs/tags/${OPENCLAW_GIT_REF}"
+RUN git checkout -B railway-template "${OPENCLAW_GIT_REF}"
 
 # Patch: relax version requirements for packages that may reference unpublished versions.
 # Apply to all extension package.json files to handle workspace protocol (workspace:*).
@@ -46,6 +52,11 @@ RUN pnpm install --no-frozen-lockfile
 RUN pnpm build
 ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:install && pnpm ui:build
+RUN git add -A \
+  && if ! git diff --cached --quiet; then \
+       git commit -m "railway: record build-time openclaw tree state"; \
+     fi \
+  && git status --short
 
 
 # Download the pinned gogcli release binary at build time. Override this version in
@@ -72,6 +83,7 @@ RUN set -eux; \
 
 # Runtime image
 FROM node:22-bookworm
+ARG PNPM_VERSION
 ENV NODE_ENV=production
 
 RUN apt-get update \
@@ -84,7 +96,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # `openclaw update` expects pnpm. Provide it in the runtime image.
-RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 # Persist user-installed tools by default by targeting the Railway volume.
 # - npm global installs -> /data/npm

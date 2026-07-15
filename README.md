@@ -38,6 +38,7 @@ Optional:
 Notes:
 - This template pins OpenClaw to a released version by default via Docker build arg `OPENCLAW_GIT_REF` (override if you want `main`).
 - The image now keeps `/openclaw` as a clean git checkout so `openclaw update` can run later on Railway. No `GITHUB_TOKEN` is required for `openclaw update`. The local `scripts/bump-openclaw-ref.mjs` helper can use `GITHUB_TOKEN` if you have one, but it also works without it against the public GitHub API.
+- The image keeps upstream `main` available locally and applies the Railway-specific changes on a separate `railway-template` branch, because `openclaw update` expects to be able to `git checkout main` during its update flow.
 
 4) Enable **Public Networking** (HTTP). Railway will assign a domain.
    - This service listens on Railway’s injected `PORT` at runtime (recommended).
@@ -95,6 +96,7 @@ What does *not* persist cleanly:
 
 - The upgraded app lives in the container filesystem, so it lasts until the next Railway redeploy or restart onto a fresh container.
 - A redeploy from this repo will restore the version baked into `OPENCLAW_GIT_REF` unless you also bump that build arg here.
+- This behavior only applies after deploying an image built from this patched template. Existing Railway deployments created before this change will still have the old dirty `/openclaw` checkout.
 
 Use `openclaw update` for quick in-place upgrades or validation. For a durable template upgrade, also update `OPENCLAW_GIT_REF` in this repo and redeploy.
 
