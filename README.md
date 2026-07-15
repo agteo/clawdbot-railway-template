@@ -37,6 +37,7 @@ Optional:
 
 Notes:
 - This template pins OpenClaw to a released version by default via Docker build arg `OPENCLAW_GIT_REF` (override if you want `main`).
+- The image now keeps `/openclaw` as a clean git checkout so `openclaw update` can run later on Railway. No `GITHUB_TOKEN` is required for `openclaw update`. The local `scripts/bump-openclaw-ref.mjs` helper can use `GITHUB_TOKEN` if you have one, but it also works without it against the public GitHub API.
 
 4) Enable **Public Networking** (HTTP). Railway will assign a domain.
    - This service listens on Railway’s injected `PORT` at runtime (recommended).
@@ -87,6 +88,15 @@ What persists cleanly today:
 What does *not* persist cleanly:
 - `apt-get install ...` (installs into `/usr/*`)
 - Homebrew installs (typically `/opt/homebrew` or similar)
+
+### Updating OpenClaw on Railway
+
+`openclaw update` works inside the container now, but keep two limits in mind:
+
+- The upgraded app lives in the container filesystem, so it lasts until the next Railway redeploy or restart onto a fresh container.
+- A redeploy from this repo will restore the version baked into `OPENCLAW_GIT_REF` unless you also bump that build arg here.
+
+Use `openclaw update` for quick in-place upgrades or validation. For a durable template upgrade, also update `OPENCLAW_GIT_REF` in this repo and redeploy.
 
 
 ### Google Workspace / gogcli

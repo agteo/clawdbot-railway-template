@@ -26,6 +26,7 @@ WORKDIR /openclaw
 # Using a released tag avoids build breakage when `main` temporarily references unpublished packages.
 ARG OPENCLAW_GIT_REF=v2026.3.8
 RUN git clone --depth 1 --branch "${OPENCLAW_GIT_REF}" https://github.com/openclaw/openclaw.git .
+RUN git checkout -B railway-template
 
 # Patch: relax version requirements for packages that may reference unpublished versions.
 # Apply to all extension package.json files to handle workspace protocol (workspace:*).
@@ -34,6 +35,12 @@ RUN set -eux; \
     sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*">=[^"]+"/"openclaw": "*"/g' "$f"; \
     sed -i -E 's/"openclaw"[[:space:]]*:[[:space:]]*"workspace:[^"]+"/"openclaw": "*"/g' "$f"; \
   done
+RUN git config user.name "OpenClaw Railway Template" \
+  && git config user.email "railway-template@example.invalid" \
+  && git add extensions \
+  && if ! git diff --cached --quiet; then \
+       git commit -m "railway: relax extension openclaw dependency constraints"; \
+     fi
 
 RUN pnpm install --no-frozen-lockfile
 RUN pnpm build
@@ -70,6 +77,7 @@ ENV NODE_ENV=production
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
+    git \
     tini \
     python3 \
     python3-venv \

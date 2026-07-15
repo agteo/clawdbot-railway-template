@@ -3,19 +3,18 @@ import fs from "node:fs";
 const owner = "openclaw";
 const repo = "openclaw";
 const token = process.env.GITHUB_TOKEN;
-if (!token) {
-  console.error("Missing GITHUB_TOKEN");
-  process.exit(2);
-}
 
 async function gh(path) {
   const url = `https://api.github.com${path}`;
+  const headers = {
+    accept: "application/vnd.github+json",
+    "user-agent": "clawdbot-railway-template-bot",
+  };
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
   const res = await fetch(url, {
-    headers: {
-      authorization: `Bearer ${token}`,
-      accept: "application/vnd.github+json",
-      "user-agent": "clawdbot-railway-template-bot",
-    },
+    headers,
   });
   if (!res.ok) {
     throw new Error(`GitHub API ${res.status}: ${await res.text()}`);
